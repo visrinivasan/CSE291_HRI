@@ -3,13 +3,16 @@
 #include <cmvision/Blob.h>
 #include <cmvision/Blobs.h>
 #include <geometry_msgs/Twist.h>
+#include <kobuki_msgs/Sound.h>
 
 int state;
 int msgFlag;
 
 ros::Publisher cmdpub_;
+ros::Publisher soundpub_;
 ros::Subscriber msgsub_;
 ros::Subscriber blobsub;
+
 void msgsubcb (const std_msgs::String::ConstPtr& msgIn){
       int temp=std::atoi(msgIn->data.c_str());
       if(temp==1){
@@ -49,6 +52,9 @@ void msgsubcb (const std_msgs::String::ConstPtr& msgIn){
                         /*sound_play::SoundClient sc;
                         sc.say("Fetching the ball!");*/
 			system("rosrun sound_play say.py \"Ball fetched !\"");
+			kobuki_msgs::Sound snd;
+		        snd.value=6;
+		        soundpub_.publish(snd);
 			cmdpub_.publish(geometry_msgs::TwistPtr(new geometry_msgs::Twist()));
                         msgFlag=0;
                 }
@@ -103,6 +109,8 @@ int main(int argc, char **argv)
     cmdpub_ = n.advertise<geometry_msgs::Twist> ("cmd_vel_mux/input/teleop", 1);
     msgsub_=n.subscribe<std_msgs::String>("/message_pub",1,msgsubcb);
     blobsub = n.subscribe("/blobs", 1, blobsCallBack);
+    soundpub_ = n.advertise<kobuki_msgs::Sound>("/mobile_base/commands/sound",1);
+
   /**
    * ros::spin() will enter a loop, pumping callbacks.  With this version, all
    * callbacks will be called from within this thread (the main one).  ros::spin()

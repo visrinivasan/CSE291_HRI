@@ -129,16 +129,16 @@ include_directories(
 # add_dependencies(goal_keep ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(goal_keep_node src/goal_keep_node.cpp)
+ add_executable(goal_keep_node src/goal_keep_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(goal_keep_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(goal_keep_node
-#   ${catkin_LIBRARIES}
-# )
+ target_link_libraries(goal_keep_node
+   ${catkin_LIBRARIES}
+ )
 
 #############
 ## Install ##
