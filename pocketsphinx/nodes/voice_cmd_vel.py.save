@@ -37,18 +37,8 @@ class voice_cmd_vel:
     def speechCb(self, msg):
         rospy.loginfo(msg.data)
 
-	if ("fetch" in msg.data) or ("one" in msg.data):
+	if msg.data.find("move") > -1:
 	    message="1"
-	    self.str_.publish(message)
-	elif ("score" in msg.data) or ("two" in msg.data):
-	    message="2"
-	    self.str_.publish(message)
-	elif ("save" in msg.data) or ("three" in msg.data):
-	    message="3"
-            self.str_.publish(message)
-	elif ("pass" in msg.data) or ("four" in msg.data):
-	    message="4"
-            self.str_.publish(message)
 
         if msg.data.find("full speed") > -1:
             if self.speed == 0.2:
@@ -81,9 +71,9 @@ class voice_cmd_vel:
             self.msg.angular.z = 0
         elif msg.data.find("stop") > -1 or msg.data.find("halt") > -1:          
             self.msg = Twist()
-     
+        
         self.pub_.publish(self.msg)
-#	self.str_.publish(message)
+	self.str_.publish(message)
 	message="0"
 
     def cleanup(self):

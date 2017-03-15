@@ -4,16 +4,90 @@
 #include <cmvision/Blobs.h>
 #include <geometry_msgs/Twist.h>
 #include <kobuki_msgs/BumperEvent.h>
+const double PI = 3.14159265359;
 
-
-int state;
+int state=1;
 int msgFlag;
 int bumpflag;
+
+int goalx,goaly,ballx,bally;
 
 ros::Publisher cmdpub_;
 ros::Subscriber msgsub_;
 ros::Subscriber blobsub;
 ros::Subscriber bumper_;
+
+void move(double speed, double distance, bool isForward){
+	geometry_msgs::Twist vel_msg;
+   //set a random linear velocity in the x-axis
+   if (isForward)
+	   vel_msg.linear.x =abs(speed);
+   else
+	   vel_msg.linear.x =-abs(speed);
+   vel_msg.linear.y =0;
+   vel_msg.linear.z =0;
+   //set a random angular velocity in the y-axis
+   vel_msg.angular.x = 0;
+   vel_msg.angular.y = 0;
+   vel_msg.angular.z =0;
+
+   double t0 = ros::Time::now().toSec();
+   double current_distance = 0.0;
+   ros::Rate loop_rate(100);
+   do{
+	   cmdpub_.publish(vel_msg);
+	   double t1 = ros::Time::now().toSec();
+	   current_distance = speed * (t1-t0);
+	   ros::spinOnce();
+	   loop_rate.sleep();
+	   //cout<<(t1-t0)<<", "<<current_distance <<", "<<distance<<endl;
+   }while(current_distance<distance);
+   vel_msg.linear.x =0;
+   cmdpub_.publish(vel_msg);
+
+}
+
+
+void rotate (double angular_speed, double relative_angle, bool clockwise){
+
+	geometry_msgs::Twist vel_msg;
+	   //set a random linear velocity in the x-axis
+	   vel_msg.linear.x =0;
+	   vel_msg.linear.y =0;
+	   vel_msg.linear.z =0;
+	   //set a random angular velocity in the y-axis
+	   vel_msg.angular.x = 0;
+	   vel_msg.angular.y = 0;
+	   if (clockwise)
+	   		   vel_msg.angular.z =-abs(angular_speed);
+	   	   else
+	   		   vel_msg.angular.z =abs(angular_speed);
+
+	   double t0 = ros::Time::now().toSec();
+	   double current_angle = 0.0;
+	   ros::Rate loop_rate(1000);
+	   do{
+		   cmdpub_.publish(vel_msg);
+		   double t1 = ros::Time::now().toSec();
+		   current_angle = angular_speed * (t1-t0);
+		   ros::spinOnce();
+		   loop_rate.sleep();
+		   //cout<<(t1-t0)<<", "<<current_angle <<", "<<relative_angle<<endl;
+	   }while(current_angle<relative_angle);
+	   vel_msg.angular.z =0;
+	   cmdpub_.publish(vel_msg);
+}
+
+double degrees2radians(double angle_in_degrees){
+	return angle_in_degrees *PI /180.0;
+}
+
+
+
+double getDistance(double x1, double y1, double x2, double y2){
+	return sqrt(pow((x1-x2),2)+pow((y1-y2),2));
+}
+
 
 
 void  bumpercb(const kobuki_msgs::BumperEvent::ConstPtr& bump){
@@ -37,21 +111,54 @@ void msgsubcb (const std_msgs::String::ConstPtr& msgIn){
 
 /* Blob callback*/
   void blobsCallBack (const cmvision::Blobs& blobsIn){
-    if(blobsIn.blob_count >0){
+    std::cout<<"Current State : "<<state<<"\n";	
+    if(msgFlag==1){
+	if(blobsIn.blob_count >0){
+	for(int i=0;i<blobsIn.blob_count;i++){
+                if(blobsIn.blobs[i].name=="Red"){
+                        ballx=blobsIn.blobs[i].x;
+                        bally=blobsIn.blobs[i].y;
+                        break;
+                }
+        }
+	for(int i=0;i<blobsIn.blob_count;i++){
+		if(blobsIn.blobs[i].name=="Green"){
+			goalx=blobsIn.blobs[i].x;
+			goaly=blobsIn.blobs[i].y;
+			break;
+		}
+	}
 //        std::cout<<"blob detected";   
-        if(blobsIn.blobs[0].x < 280){
-//		std::cout<<":: left\n";
-                geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
-                cmd->angular.z = 0.4;
-                cmdpub_.publish(cmd);
-        }
-        else if(blobsIn.blobs[0].x > 360){
-//		std::cout<<":: right\n";
-                geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
-                cmd->angular.z = -0.4;
-                cmdpub_.publish(cmd);
-        }
-        if(msgFlag==1){
+        if(state==1){
+		if(ballx < 280){
+//			std::cout<<":: left\n";
+                	geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
+                	cmd->angular.z = 0.4;
+                	cmdpub_.publish(cmd);
+        	}
+        	else if(ballx > 360){
+//			std::cout<<":: right\n";
+                	geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
+                	cmd->angular.z = -0.4;
+                	cmdpub_.publish(cmd);
+		
+        	}
+		else if(ballx>280 && ballx<360){
+			state=2;
+		}
+	}
+
+	if(state==2){
+		if(goalx>280 && goalx<360){
+			state=3;
+		}
+		else{
+			state=4;
+		}
+	}
+
+
+        if(state==3){
                 geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
                 cmd->linear.x = 0.6;
                 cmdpub_.publish(cmd);
@@ -59,17 +166,45 @@ void msgsubcb (const std_msgs::String::ConstPtr& msgIn){
 			cmdpub_.publish(geometry_msgs::TwistPtr(new geometry_msgs::Twist()));
                         msgFlag=0;
 			bumpflag=0;
-                }
+			state=1;
 
+                }
         }
+
+	if(state==4){
+		geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
+		cmd->linear.x=0.0;
+		cmd->angular.z=2.0;
+		cmdpub_.publish(cmd);
+		for(int i=0;i<1000000000;i++){
+		;
+		}
+		cmd->linear.x=0.3;
+		cmd->angular.z=0.0;
+		cmdpub_.publish(cmd);
+		for(int i=0;i<1000000000;i++){
+		;
+		}
+        	cmd->linear.x=0.0;
+                cmd->angular.z=-2.0;
+                cmdpub_.publish(cmd);
+
+		for(int i=0;i<1000000000;i++){
+		;
+		}
+		state=1;
+	
+	}		
+
     }
   else{
 //        std::cout<<"No blob detected\n";
         geometry_msgs::TwistPtr cmd(new geometry_msgs::Twist());
-	cmd->angular.z = -0.2;
+	//cmd->angular.z = -0.2;
         cmdpub_.publish(cmd);
     }
-  }
+}
+}
 
 
 
